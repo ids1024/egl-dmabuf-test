@@ -204,8 +204,12 @@ void draw_texture_to_framebuffer(GLuint texture, int width, int height) {
 }
 
 int main() {
-	int dmabuf = create_udmabuf(256 * 256 * 4);
-	set_test_image(dmabuf, 256, 256, 256 * 4);
+	int width = 256;
+	int height = 256;
+	int stride = 256 * 4;
+
+	int dmabuf = create_udmabuf(stride * height);
+	set_test_image(dmabuf, width, height, stride);
 
 	void *libegl = dlopen("libEGL.so.1", RTLD_LAZY);
 	assert(libegl != NULL);
@@ -254,8 +258,8 @@ int main() {
 		assert(eglGetConfigs(display, configs, n_configs, &n_chosen_configs) != 0);
 		//assert(eglChooseConfig(display, NULL, configs, n_configs, &n_chosen_configs) != 0 && n_chosen_configs > 0);
 		EGLint surfaceAttributes[] = {
-			EGL_WIDTH, 256,
-			EGL_HEIGHT, 256,
+			EGL_WIDTH, width,
+			EGL_HEIGHT, height,
 			EGL_NONE
 		};
 		EGLSurface surface = eglCreatePbufferSurface(display, configs[0], surfaceAttributes);
@@ -274,17 +278,16 @@ int main() {
 
 		assert(GLAD_GL_OES_EGL_image_external);
 
-		GLuint texture = bind_dmabuf(display, 256, 256, DRM_FORMAT_ARGB8888, dmabuf, 0, 256 *4);
+		GLuint texture = bind_dmabuf(display, width, height, DRM_FORMAT_ARGB8888, dmabuf, 0, stride);
 
-		// TODO render texture to framebuffer?
-		draw_texture_to_framebuffer(texture, 256, 256);
+		draw_texture_to_framebuffer(texture, width, height);
 
-		// XXX bind read fb
-		char data[256 * 256 * 4];
-		glReadPixels(0, 0, 256, 256, GL_RGBA, GL_UNSIGNED_BYTE, &data);
+		char *data = malloc(height * width * 4);
+		glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
 		char *filename = NULL;
 		asprintf(&filename, "test%d.png", i);
-		write_png(data, 256, 256, filename);
+		write_png(data, width, height, filename);
+		free(data);
 		free(filename);
 	}
 }
