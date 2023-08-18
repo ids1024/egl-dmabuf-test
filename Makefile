@@ -1,5 +1,5 @@
 test: src/*.c
-	gcc -Wall -lpng16 -o $@ -I include $^
+	gcc -Wall -o $@ -I include $^ -lpng16
 
 run: test
 	./test
