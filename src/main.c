@@ -49,17 +49,17 @@ int create_udmabuf(int size) {
 }
 
 void set_test_image(int fd, int width, int height, int stride) {
+	const int STRIPE_WIDTH = 9;
+
 	char *bytes = mmap(NULL, stride * height, PROT_WRITE, MAP_SHARED, fd, 0);
 	assert(bytes != NULL);
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
 			char *color = bytes + y * stride + x * 4;
-			if (((x / 8) % 2) == 0)
-				color[0] = 255;
-			else
-				color[0] = 0;
-			color[1] = 0;
-			color[2] = 0;
+			int stripe = ((x / STRIPE_WIDTH) % 3);
+			color[0] = 255 * (stripe == 0);
+			color[1] = 255 * (stripe == 1);
+			color[2] = 255 * (stripe == 2);
 			color[3] = 255;
 		}
 	}
