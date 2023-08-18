@@ -22,6 +22,10 @@
 //
 // Requires access to /dev/udmabuf (generally being a member of the kvm group)
 int create_udmabuf(int size) {
+	int page_size = getpagesize();
+	while (size % page_size != 0)
+		size++;
+
 	int udmabuf_dev = open("/dev/udmabuf", O_RDWR | O_CLOEXEC);
 	assert(udmabuf_dev != -1);
 
@@ -75,7 +79,8 @@ GLuint bind_dmabuf(EGLDisplay display, EGLAttrib width, EGLAttrib height, EGLAtt
 		EGL_NONE
 	};
 	EGLImage image = eglCreateImage(display, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, NULL, attrs); 
-	assert(image !=  EGL_NO_IMAGE);
+	if(image ==  EGL_NO_IMAGE)
+		return 0;
 
 	assert(glGetError() == GL_NO_ERROR);
 	GLuint texture;
@@ -86,10 +91,10 @@ GLuint bind_dmabuf(EGLDisplay display, EGLAttrib width, EGLAttrib height, EGLAtt
 
 	eglDestroyImage(display, image);
 
-	if (glGetError() != GL_NO_ERROR)
-		printf("Import failed\n");
-	else
-		printf("Import Succeeded\n");
+	if (glGetError() != GL_NO_ERROR) {
+		glDeleteTextures(1, &texture);
+		return 0;
+	}
 
 	return texture;
 }
@@ -279,6 +284,12 @@ int main() {
 		assert(GLAD_GL_OES_EGL_image_external);
 
 		GLuint texture = bind_dmabuf(display, width, height, DRM_FORMAT_ARGB8888, dmabuf, 0, stride);
+		if (texture == 0) {
+			printf("Import failed\n");
+			continue;
+		} else {
+			printf("Import succeeded\n");
+		}
 
 		draw_texture_to_framebuffer(texture, width, height);
 
