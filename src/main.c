@@ -80,9 +80,9 @@ GLuint bind_dmabuf(EGLDisplay display, EGLAttrib width, EGLAttrib height, EGLAtt
 	assert(glGetError() == GL_NO_ERROR);
 	GLuint texture;
 	glGenTextures(1, &texture);
-	glBindTexture(GL_TEXTURE_2D, texture);
-	glad_glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, image);
-	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindTexture(GL_TEXTURE_EXTERNAL_OES, texture);
+	glEGLImageTargetTexture2DOES(GL_TEXTURE_EXTERNAL_OES, image);
+	glBindTexture(GL_TEXTURE_EXTERNAL_OES, 0);
 
 	eglDestroyImage(display, image);
 
@@ -157,11 +157,11 @@ void draw_texture_to_framebuffer(GLuint texture, int width, int height) {
 	// XXX tex coords
 	const char *fs =
 		"#version 100\n"
-		"uniform sampler2D sampler;\n"
+		"#extension GL_OES_EGL_image_external : enable\n"
+		"uniform samplerExternalOES sampler;\n"
 		"varying highp vec2 tex_coord;\n"
 		"void main(void) {\n"
 		"	gl_FragColor = texture2D(sampler, tex_coord);\n"
-		//"	gl_FragColor = vec4(1., 1., 0., 1.);\n"
 		"}\n";
 	GLuint program = shader_program(vs, fs);
 	glUseProgram(program);
@@ -188,16 +188,16 @@ void draw_texture_to_framebuffer(GLuint texture, int width, int height) {
    	glVertexAttribPointer(vertex_attrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, texture);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glBindTexture(GL_TEXTURE_EXTERNAL_OES, texture);
+	glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glUniform1i(sampler_uniform, 0);
 
 	glClear(GL_COLOR_BUFFER_BIT);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4); // XXX
 
 	glUseProgram(0);
-	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindTexture(GL_TEXTURE_EXTERNAL_OES, 0);
 	glDeleteProgram(program);
 
 	assert(glGetError() == GL_NO_ERROR);
