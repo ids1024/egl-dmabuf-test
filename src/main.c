@@ -150,7 +150,6 @@ void write_png(char *buffer, png_uint_32 width, png_uint_32 height, char *path) 
 // Use simple shaders to draw texture to framebuffer with a sampler
 void draw_texture_to_framebuffer(GLuint texture, int width, int height) {
 	glGetError();
-	// TODO render texture to framebuffer?
 	const char *vs =
 		"#version 100\n"
 		"attribute vec4 vertex;\n"
@@ -159,7 +158,6 @@ void draw_texture_to_framebuffer(GLuint texture, int width, int height) {
 		"	gl_Position = (vec4(2.0, 2.0, 1.0, 1.0) * vertex) - vec4(1.0, 1.0, 0.0, 0.0);\n"
 		"	tex_coord = vertex.xy;\n" 
 		"}\n";
-	// XXX tex coords
 	const char *fs =
 		"#version 100\n"
 		"#extension GL_OES_EGL_image_external : enable\n"
@@ -199,7 +197,7 @@ void draw_texture_to_framebuffer(GLuint texture, int width, int height) {
 	glUniform1i(sampler_uniform, 0);
 
 	glClear(GL_COLOR_BUFFER_BIT);
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4); // XXX
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
 	glUseProgram(0);
 	glBindTexture(GL_TEXTURE_EXTERNAL_OES, 0);
