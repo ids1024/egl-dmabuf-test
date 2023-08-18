@@ -48,11 +48,10 @@ int create_udmabuf(int size) {
 	return udmabuf;
 }
 
-void set_test_image(int fd, int width, int height, int stride) {
+// Writes image data, as BGRA, containing vertical blue/green/red stripes.
+void set_test_image(char *bytes, int width, int height, int stride) {
 	const int STRIPE_WIDTH = 9;
 
-	char *bytes = mmap(NULL, stride * height, PROT_WRITE, MAP_SHARED, fd, 0);
-	assert(bytes != NULL);
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
 			char *color = bytes + y * stride + x * 4;
@@ -63,7 +62,6 @@ void set_test_image(int fd, int width, int height, int stride) {
 			color[3] = 255;
 		}
 	}
-	assert(munmap(bytes, stride * height) == 0);
 }
 
 // Import single-plane dmabuf as an EGLImage, and create an OpenGL texture
@@ -136,14 +134,14 @@ GLuint shader_program(const char *vs_src, const char *fs_src) {
 	return program;
 }
 
-void write_png(char *buffer, png_uint_32 width, png_uint_32 height, char *path) {
+void write_png(char *buffer, int format, int width, int height, int stride, char *path) {
 	png_image img;
 	memset(&img, 0, sizeof(img));
 	img.version = PNG_IMAGE_VERSION;
 	img.width = width;
 	img.height = height;
-	img.format = PNG_FORMAT_RGBA;
-	png_image_write_to_file(&img, path, 0, buffer, 0, NULL);
+	img.format = format;
+	png_image_write_to_file(&img, path, 0, buffer, stride, NULL);
 	png_image_free(&img);
 }
 
@@ -192,8 +190,6 @@ void draw_texture_to_framebuffer(GLuint texture, int width, int height) {
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_EXTERNAL_OES, texture);
-	glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glUniform1i(sampler_uniform, 0);
 
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -212,7 +208,10 @@ int main() {
 	int stride = 256 * 4;
 
 	int dmabuf = create_udmabuf(stride * height);
-	set_test_image(dmabuf, width, height, stride);
+	char *dmabuf_bytes = mmap(NULL, stride * height, PROT_WRITE, MAP_SHARED, dmabuf, 0);
+	assert(dmabuf_bytes != NULL);
+	set_test_image(dmabuf_bytes, width, height, stride);
+	write_png(dmabuf_bytes, PNG_FORMAT_BGRA, width, height, stride, "reference.png");
 
 	void *libegl = dlopen("libEGL.so.1", RTLD_LAZY);
 	assert(libegl != NULL);
@@ -295,8 +294,11 @@ int main() {
 		glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
 		char *filename = NULL;
 		asprintf(&filename, "test%d.png", i);
-		write_png(data, width, height, filename);
+		write_png(data, PNG_FORMAT_RGBA, width, height, 0, filename);
 		free(data);
 		free(filename);
 	}
+
+	assert(munmap(dmabuf_bytes, stride * height) == 0);
+	close(dmabuf);
 }
