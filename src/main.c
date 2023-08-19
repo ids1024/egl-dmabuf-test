@@ -202,6 +202,17 @@ void draw_texture_to_framebuffer(GLuint texture, int width, int height) {
 	assert(glGetError() == GL_NO_ERROR);
 }
 
+// Returns 1 if image have same pixels
+int image_matches(int width, int height, char *image1, int stride1, char *image2, int stride2) {
+	for (int y = 0; y < height; y++) {
+		for (int b = 0; b < width * 4; b++) {
+			if (image1[y * stride1 + b] != image2[y * stride2 + b])
+				return 0;
+		}
+	}
+	return 1;
+}
+
 int main() {
 	int width = 256;
 	int height = 256;
@@ -292,6 +303,11 @@ int main() {
 
 		char *data = malloc(height * width * 4);
 		glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
+		if (image_matches(width, height, dmabuf_bytes, stride, data, width * 4))
+			printf("Image matches\n");
+		else
+			printf("Image doesn't match\n");
+
 		char *filename = NULL;
 		asprintf(&filename, "test%d.png", i);
 		write_png(data, width, height, 0, filename);
