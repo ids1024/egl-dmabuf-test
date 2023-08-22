@@ -236,29 +236,31 @@ void test_gl_size(EGLDisplay display, char *device_name, int width, int height, 
 	glViewport(0, 0, width, height);
 
 	GLuint texture = bind_dmabuf(display, width, height, DRM_FORMAT_ABGR8888, dmabuf, 0, stride);
-	if (texture == 0) {
-		printf("Import failed\n");
-		goto cleanup;
-	} else {
-		printf("Import succeeded\n");
+
+	int matches = 0;
+	if (texture != 0) {
+		draw_texture_to_framebuffer(texture, width, height);
+
+		char *data = malloc(height * width * 4);
+		glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
+		if (image_matches(width, height, dmabuf_bytes, stride, data, width * 4))
+			matches = 1;
+
+		filename = NULL;
+		asprintf(&filename, "%s-%dx%d-%d.png", device_name, width, height, stride);
+		write_png(data, width, height, 0, filename);
+		free(data);
+		free(filename);
 	}
 
-	draw_texture_to_framebuffer(texture, width, height);
-
-	char *data = malloc(height * width * 4);
-	glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
-	if (image_matches(width, height, dmabuf_bytes, stride, data, width * 4))
-		printf("Image matches\n");
+	printf("    %dx%d at stride %d: ", width, height, stride);
+	if (matches)
+		printf("success\n");
+	else if (texture)
+		printf("failed to match expected output\n");
 	else
-		printf("Image doesn't match\n");
+		printf("import failed\n");
 
-	filename = NULL;
-	asprintf(&filename, "%s-%dx%d-%d.png", device_name, width, height, stride);
-	write_png(data, width, height, 0, filename);
-	free(data);
-	free(filename);
-
-cleanup:
 	assert(munmap(dmabuf_bytes, stride * height) == 0);
 	close(dmabuf);
 }
@@ -266,12 +268,11 @@ cleanup:
 void test_egl(EGLDisplay display, char *device_name) {
 	assert(eglBindAPI(EGL_OPENGL_ES_API));
 
+	const char *driver_name;
 	if (GLAD_EGL_MESA_query_driver) {
-		const char *driver = eglGetDisplayDriverName(display);
-		printf("%s\n", driver);
+		driver_name = eglGetDisplayDriverName(display);
 	} else {
-		const char *vendor = eglQueryString(display, EGL_VENDOR);
-		printf("%s\n", vendor);
+		driver_name = eglQueryString(display, EGL_VENDOR);
 	}
 
 	if (!GLAD_EGL_EXT_image_dma_buf_import || !GLAD_EGL_MESA_image_dma_buf_export || !GLAD_EGL_KHR_surfaceless_context) {
@@ -303,7 +304,8 @@ void test_egl(EGLDisplay display, char *device_name) {
 
 	int gles_version = gladLoadGLES2(eglGetProcAddress);
 	assert(gles_version != 0);
-	printf("Loaded GLES %d.%d\n", GLAD_VERSION_MAJOR(gles_version), GLAD_VERSION_MINOR(gles_version));
+
+	printf("%s (%s, GLES %d.%d)\n", device_name, driver_name, GLAD_VERSION_MAJOR(gles_version), GLAD_VERSION_MINOR(gles_version));
 
 	assert(GLAD_GL_OES_EGL_image_external);
 
