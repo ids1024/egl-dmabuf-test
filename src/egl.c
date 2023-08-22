@@ -35,6 +35,7 @@ int GLAD_EGL_EXT_device_query = 0;
 int GLAD_EGL_EXT_image_dma_buf_import = 0;
 int GLAD_EGL_EXT_image_dma_buf_import_modifiers = 0;
 int GLAD_EGL_EXT_platform_device = 0;
+int GLAD_EGL_KHR_surfaceless_context = 0;
 int GLAD_EGL_MESA_image_dma_buf_export = 0;
 int GLAD_EGL_MESA_query_driver = 0;
 
@@ -223,6 +224,7 @@ static int glad_egl_find_extensions_egl(EGLDisplay display) {
     GLAD_EGL_EXT_image_dma_buf_import = glad_egl_has_extension(extensions, "EGL_EXT_image_dma_buf_import");
     GLAD_EGL_EXT_image_dma_buf_import_modifiers = glad_egl_has_extension(extensions, "EGL_EXT_image_dma_buf_import_modifiers");
     GLAD_EGL_EXT_platform_device = glad_egl_has_extension(extensions, "EGL_EXT_platform_device");
+    GLAD_EGL_KHR_surfaceless_context = glad_egl_has_extension(extensions, "EGL_KHR_surfaceless_context");
     GLAD_EGL_MESA_image_dma_buf_export = glad_egl_has_extension(extensions, "EGL_MESA_image_dma_buf_export");
     GLAD_EGL_MESA_query_driver = glad_egl_has_extension(extensions, "EGL_MESA_query_driver");
 

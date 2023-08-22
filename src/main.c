@@ -213,33 +213,27 @@ int image_matches(int width, int height, char *image1, int stride1, char *image2
 	return 1;
 }
 
-void test_egl_size(EGLDisplay display, char *device_name, EGLConfig config, int width, int height, int stride) {
+// Run tests for display at given size. Requires bound gl context.
+void test_gl_size(EGLDisplay display, char *device_name, int width, int height, int stride) {
 	int dmabuf = create_udmabuf(stride * height);
 	char *dmabuf_bytes = mmap(NULL, stride * height, PROT_WRITE, MAP_SHARED, dmabuf, 0);
 	assert(dmabuf_bytes != NULL);
 	set_test_image(dmabuf_bytes, width, height, stride);
-	write_png(dmabuf_bytes, width, height, stride, "reference.png");
+	char *filename = NULL;
+	asprintf(&filename, "reference-%dx%d-%d.png", width, height, stride);
+	write_png(dmabuf_bytes, width, height, stride, filename);
+	free(filename);
 
-	EGLint surfaceAttributes[] = {
-		EGL_WIDTH, width,
-		EGL_HEIGHT, height,
-		EGL_NONE
-	};
-	EGLSurface surface = eglCreatePbufferSurface(display, config, surfaceAttributes);
-	assert(surface != EGL_NO_SURFACE);
-	EGLint contextAttributes[] = {
-		EGL_CONTEXT_MAJOR_VERSION, 2,
-		EGL_NONE
-	};
-	EGLContext context = eglCreateContext(display, config, EGL_NO_CONTEXT, contextAttributes);
-	assert(context != EGL_NO_CONTEXT);
-	assert(eglMakeCurrent(display, surface, surface, context));
-
-	int gles_version = gladLoadGLES2(eglGetProcAddress);
-	assert(gles_version != 0);
-	printf("Loaded GLES %d.%d\n", GLAD_VERSION_MAJOR(gles_version), GLAD_VERSION_MINOR(gles_version));
-
-	assert(GLAD_GL_OES_EGL_image_external);
+	GLuint renderbuffer;
+	glGenRenderbuffers(1, &renderbuffer);
+	glBindRenderbuffer(GL_RENDERBUFFER, renderbuffer);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8_OES, width, height);
+	GLuint framebuffer;
+	glGenFramebuffers(1, &framebuffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, renderbuffer);
+	assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+	glViewport(0, 0, width, height);
 
 	GLuint texture = bind_dmabuf(display, width, height, DRM_FORMAT_ABGR8888, dmabuf, 0, stride);
 	if (texture == 0) {
@@ -258,7 +252,7 @@ void test_egl_size(EGLDisplay display, char *device_name, EGLConfig config, int 
 	else
 		printf("Image doesn't match\n");
 
-	char *filename = NULL;
+	filename = NULL;
 	asprintf(&filename, "%s-%dx%d-%d.png", device_name, width, height, stride);
 	write_png(data, width, height, 0, filename);
 	free(data);
@@ -280,18 +274,43 @@ void test_egl(EGLDisplay display, char *device_name) {
 		printf("%s\n", vendor);
 	}
 
-	if (!GLAD_EGL_EXT_image_dma_buf_import || !GLAD_EGL_MESA_image_dma_buf_export) {
+	if (!GLAD_EGL_EXT_image_dma_buf_import || !GLAD_EGL_MESA_image_dma_buf_export || !GLAD_EGL_KHR_surfaceless_context) {
 		return;
 	}
 
 	EGLint n_configs, n_chosen_configs;
 	assert(eglGetConfigs(display, NULL, 0, &n_configs) != 0 && n_configs > 0);
 	EGLConfig *configs = malloc(n_configs * sizeof(EGLConfig));
-	// XXX attribs
-	assert(eglGetConfigs(display, configs, n_configs, &n_chosen_configs) != 0);
-	//assert(eglChooseConfig(display, NULL, configs, n_configs, &n_chosen_configs) != 0 && n_chosen_configs > 0);
+	EGLint configAttributes[] = {
+		EGL_CONFORMANT, EGL_OPENGL_ES2_BIT,
+		EGL_RED_SIZE, 8,
+		EGL_GREEN_SIZE, 8,
+		EGL_BLUE_SIZE, 8,
+		EGL_ALPHA_SIZE, 8,
+		EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
+		EGL_NONE,
+	};
+	assert(eglChooseConfig(display, configAttributes, configs, n_configs, &n_chosen_configs) != 0);
+	assert(n_chosen_configs > 0);
 
-	test_egl_size(display, device_name, configs[0], 256, 256, 256 * 4);
+	EGLint contextAttributes[] = {
+		EGL_CONTEXT_MAJOR_VERSION, 2,
+		EGL_NONE
+	};
+	EGLContext context = eglCreateContext(display, configs[0], EGL_NO_CONTEXT, contextAttributes);
+	assert(context != EGL_NO_CONTEXT);
+	assert(eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, context));
+
+	int gles_version = gladLoadGLES2(eglGetProcAddress);
+	assert(gles_version != 0);
+	printf("Loaded GLES %d.%d\n", GLAD_VERSION_MAJOR(gles_version), GLAD_VERSION_MINOR(gles_version));
+
+	assert(GLAD_GL_OES_EGL_image_external);
+
+	test_gl_size(display, device_name, 256, 256, 256 * 4);
+	test_gl_size(display, device_name, 255, 256, 256 * 4);
+	test_gl_size(display, device_name, 255, 256, 255 * 4);
+	test_gl_size(display, device_name, 253, 256, 254 * 4);
 }
 
 int main() {
