@@ -261,6 +261,9 @@ void test_gl_size(EGLDisplay display, char *device_name, int width, int height, 
     else
         printf("import failed\n");
 
+    glDeleteTextures(1, &texture);
+    glDeleteFramebuffers(1, &framebuffer);
+    glDeleteRenderbuffers(1, &renderbuffer);
     assert(munmap(dmabuf_bytes, stride * height) == 0);
     close(dmabuf);
 }
