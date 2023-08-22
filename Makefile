@@ -1,7 +1,7 @@
-test: src/*.c
+egl-dmabuf-test: src/*.c
 	gcc -Wall -o $@ -I include $^ -lpng16
 
-run: test
-	./test
+run: egl-dmabuf-test
+	./egl-dmabuf-test
 
 .PHONY: run
