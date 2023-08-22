@@ -315,7 +315,8 @@ void test_egl(EGLDisplay display, char *device_name) {
     test_gl_size(display, device_name, 256, 256, 256 * 4);
     test_gl_size(display, device_name, 255, 256, 256 * 4);
     test_gl_size(display, device_name, 255, 256, 255 * 4);
-    test_gl_size(display, device_name, 253, 256, 254 * 4);
+    test_gl_size(display, device_name, 254, 256, 254 * 4);
+    test_gl_size(display, device_name, 252, 256, 252 * 4);
 }
 
 int main() {
