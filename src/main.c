@@ -213,17 +213,88 @@ int image_matches(int width, int height, char *image1, int stride1, char *image2
 	return 1;
 }
 
-int main() {
-	int width = 256;
-	int height = 256;
-	int stride = 256 * 4;
-
+void test_egl_size(EGLDisplay display, char *device_name, EGLConfig config, int width, int height, int stride) {
 	int dmabuf = create_udmabuf(stride * height);
 	char *dmabuf_bytes = mmap(NULL, stride * height, PROT_WRITE, MAP_SHARED, dmabuf, 0);
 	assert(dmabuf_bytes != NULL);
 	set_test_image(dmabuf_bytes, width, height, stride);
 	write_png(dmabuf_bytes, width, height, stride, "reference.png");
 
+	EGLint surfaceAttributes[] = {
+		EGL_WIDTH, width,
+		EGL_HEIGHT, height,
+		EGL_NONE
+	};
+	EGLSurface surface = eglCreatePbufferSurface(display, config, surfaceAttributes);
+	assert(surface != EGL_NO_SURFACE);
+	EGLint contextAttributes[] = {
+		EGL_CONTEXT_MAJOR_VERSION, 2,
+		EGL_NONE
+	};
+	EGLContext context = eglCreateContext(display, config, EGL_NO_CONTEXT, contextAttributes);
+	assert(context != EGL_NO_CONTEXT);
+	assert(eglMakeCurrent(display, surface, surface, context));
+
+	int gles_version = gladLoadGLES2(eglGetProcAddress);
+	assert(gles_version != 0);
+	printf("Loaded GLES %d.%d\n", GLAD_VERSION_MAJOR(gles_version), GLAD_VERSION_MINOR(gles_version));
+
+	assert(GLAD_GL_OES_EGL_image_external);
+
+	GLuint texture = bind_dmabuf(display, width, height, DRM_FORMAT_ABGR8888, dmabuf, 0, stride);
+	if (texture == 0) {
+		printf("Import failed\n");
+		goto cleanup;
+	} else {
+		printf("Import succeeded\n");
+	}
+
+	draw_texture_to_framebuffer(texture, width, height);
+
+	char *data = malloc(height * width * 4);
+	glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
+	if (image_matches(width, height, dmabuf_bytes, stride, data, width * 4))
+		printf("Image matches\n");
+	else
+		printf("Image doesn't match\n");
+
+	char *filename = NULL;
+	asprintf(&filename, "%s-%dx%d-%d.png", device_name, width, height, stride);
+	write_png(data, width, height, 0, filename);
+	free(data);
+	free(filename);
+
+cleanup:
+	assert(munmap(dmabuf_bytes, stride * height) == 0);
+	close(dmabuf);
+}
+
+void test_egl(EGLDisplay display, char *device_name) {
+	assert(eglBindAPI(EGL_OPENGL_ES_API));
+
+	if (GLAD_EGL_MESA_query_driver) {
+		const char *driver = eglGetDisplayDriverName(display);
+		printf("%s\n", driver);
+	} else {
+		const char *vendor = eglQueryString(display, EGL_VENDOR);
+		printf("%s\n", vendor);
+	}
+
+	if (!GLAD_EGL_EXT_image_dma_buf_import || !GLAD_EGL_MESA_image_dma_buf_export) {
+		return;
+	}
+
+	EGLint n_configs, n_chosen_configs;
+	assert(eglGetConfigs(display, NULL, 0, &n_configs) != 0 && n_configs > 0);
+	EGLConfig *configs = malloc(n_configs * sizeof(EGLConfig));
+	// XXX attribs
+	assert(eglGetConfigs(display, configs, n_configs, &n_chosen_configs) != 0);
+	//assert(eglChooseConfig(display, NULL, configs, n_configs, &n_chosen_configs) != 0 && n_chosen_configs > 0);
+
+	test_egl_size(display, device_name, configs[0], 256, 256, 256 * 4);
+}
+
+int main() {
 	void *libegl = dlopen("libEGL.so.1", RTLD_LAZY);
 	assert(libegl != NULL);
 	GLADloadfunc eglLoader = dlsym(libegl, "eglGetProcAddress");
@@ -244,77 +315,15 @@ int main() {
 		EGLDisplay display = eglGetDisplay(devices[i]);
 		assert(display != EGL_NO_DISPLAY);
 
-		//assert(eglInitialize(display, NULL, NULL));
 		if (!eglInitialize(display, NULL, NULL))
 			continue;
+
 		assert(gladLoadEGL(display, eglLoader) != 0);
-		assert(eglBindAPI(EGL_OPENGL_ES_API));
 
-		const char *vendor = eglQueryString(display, EGL_VENDOR);
-		if (GLAD_EGL_MESA_query_driver) {
-			const char *driver = eglGetDisplayDriverName(display);
-			printf("driver: %s; %s\n", vendor, driver);
-		} else {
-			printf("driver: %s\n", vendor);
-		}
-
-		//const char *extensions = eglQueryString(display, EGL_EXTENSIONS);
-		//printf("Extensions: %s\n", extensions);
-		if (!GLAD_EGL_EXT_image_dma_buf_import || !GLAD_EGL_MESA_image_dma_buf_export) {
+		const char *device_file = eglQueryDeviceStringEXT(devices[i], EGL_DRM_DEVICE_FILE_EXT);
+		if(device_file == NULL)
 			continue;
-		}
 
-		EGLint n_configs, n_chosen_configs;
-		assert(eglGetConfigs(display, NULL, 0, &n_configs) != 0 && n_configs > 0);
-		EGLConfig *configs = malloc(n_configs * sizeof(EGLConfig));
-		// XXX attribs
-		assert(eglGetConfigs(display, configs, n_configs, &n_chosen_configs) != 0);
-		//assert(eglChooseConfig(display, NULL, configs, n_configs, &n_chosen_configs) != 0 && n_chosen_configs > 0);
-		EGLint surfaceAttributes[] = {
-			EGL_WIDTH, width,
-			EGL_HEIGHT, height,
-			EGL_NONE
-		};
-		EGLSurface surface = eglCreatePbufferSurface(display, configs[0], surfaceAttributes);
-		assert(surface != EGL_NO_SURFACE);
-		EGLint contextAttributes[] = {
-			EGL_CONTEXT_MAJOR_VERSION, 2,
-			EGL_NONE
-		};
-		EGLContext context = eglCreateContext(display, configs[0], EGL_NO_CONTEXT, contextAttributes);
-		assert(context != EGL_NO_CONTEXT);
-		assert(eglMakeCurrent(display, surface, surface, context));
-
-		int gles_version = gladLoadGLES2(eglGetProcAddress);
-		assert(gles_version != 0);
-		printf("Loaded GLES %d.%d\n", GLAD_VERSION_MAJOR(gles_version), GLAD_VERSION_MINOR(gles_version));
-
-		assert(GLAD_GL_OES_EGL_image_external);
-
-		GLuint texture = bind_dmabuf(display, width, height, DRM_FORMAT_ABGR8888, dmabuf, 0, stride);
-		if (texture == 0) {
-			printf("Import failed\n");
-			continue;
-		} else {
-			printf("Import succeeded\n");
-		}
-
-		draw_texture_to_framebuffer(texture, width, height);
-
-		char *data = malloc(height * width * 4);
-		glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
-		if (image_matches(width, height, dmabuf_bytes, stride, data, width * 4))
-			printf("Image matches\n");
-		else
-			printf("Image doesn't match\n");
-
-		char *filename = NULL;
-		asprintf(&filename, "test%d.png", i);
-		write_png(data, width, height, 0, filename);
-		free(data);
-		free(filename);
+		test_egl(display, basename(device_file));
 	}
-
-	assert(munmap(dmabuf_bytes, stride * height) == 0);
-	close(dmabuf);
 }

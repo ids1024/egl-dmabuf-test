@@ -29,9 +29,11 @@ int GLAD_EGL_VERSION_1_2 = 0;
 int GLAD_EGL_VERSION_1_3 = 0;
 int GLAD_EGL_VERSION_1_4 = 0;
 int GLAD_EGL_VERSION_1_5 = 0;
+int GLAD_EGL_EXT_device_drm = 0;
 int GLAD_EGL_EXT_device_enumeration = 0;
 int GLAD_EGL_EXT_device_query = 0;
 int GLAD_EGL_EXT_image_dma_buf_import = 0;
+int GLAD_EGL_EXT_image_dma_buf_import_modifiers = 0;
 int GLAD_EGL_EXT_platform_device = 0;
 int GLAD_EGL_MESA_image_dma_buf_export = 0;
 int GLAD_EGL_MESA_query_driver = 0;
@@ -78,6 +80,8 @@ PFNEGLQUERYDEVICEATTRIBEXTPROC glad_eglQueryDeviceAttribEXT = NULL;
 PFNEGLQUERYDEVICESTRINGEXTPROC glad_eglQueryDeviceStringEXT = NULL;
 PFNEGLQUERYDEVICESEXTPROC glad_eglQueryDevicesEXT = NULL;
 PFNEGLQUERYDISPLAYATTRIBEXTPROC glad_eglQueryDisplayAttribEXT = NULL;
+PFNEGLQUERYDMABUFFORMATSEXTPROC glad_eglQueryDmaBufFormatsEXT = NULL;
+PFNEGLQUERYDMABUFMODIFIERSEXTPROC glad_eglQueryDmaBufModifiersEXT = NULL;
 PFNEGLQUERYSTRINGPROC glad_eglQueryString = NULL;
 PFNEGLQUERYSURFACEPROC glad_eglQuerySurface = NULL;
 PFNEGLRELEASETEXIMAGEPROC glad_eglReleaseTexImage = NULL;
@@ -161,6 +165,11 @@ static void glad_egl_load_EGL_EXT_device_query( GLADuserptrloadfunc load, void* 
     glad_eglQueryDeviceStringEXT = (PFNEGLQUERYDEVICESTRINGEXTPROC) load(userptr, "eglQueryDeviceStringEXT");
     glad_eglQueryDisplayAttribEXT = (PFNEGLQUERYDISPLAYATTRIBEXTPROC) load(userptr, "eglQueryDisplayAttribEXT");
 }
+static void glad_egl_load_EGL_EXT_image_dma_buf_import_modifiers( GLADuserptrloadfunc load, void* userptr) {
+    if(!GLAD_EGL_EXT_image_dma_buf_import_modifiers) return;
+    glad_eglQueryDmaBufFormatsEXT = (PFNEGLQUERYDMABUFFORMATSEXTPROC) load(userptr, "eglQueryDmaBufFormatsEXT");
+    glad_eglQueryDmaBufModifiersEXT = (PFNEGLQUERYDMABUFMODIFIERSEXTPROC) load(userptr, "eglQueryDmaBufModifiersEXT");
+}
 static void glad_egl_load_EGL_MESA_image_dma_buf_export( GLADuserptrloadfunc load, void* userptr) {
     if(!GLAD_EGL_MESA_image_dma_buf_export) return;
     glad_eglExportDMABUFImageMESA = (PFNEGLEXPORTDMABUFIMAGEMESAPROC) load(userptr, "eglExportDMABUFImageMESA");
@@ -208,9 +217,11 @@ static int glad_egl_find_extensions_egl(EGLDisplay display) {
     const char *extensions;
     if (!glad_egl_get_extensions(display, &extensions)) return 0;
 
+    GLAD_EGL_EXT_device_drm = glad_egl_has_extension(extensions, "EGL_EXT_device_drm");
     GLAD_EGL_EXT_device_enumeration = glad_egl_has_extension(extensions, "EGL_EXT_device_enumeration");
     GLAD_EGL_EXT_device_query = glad_egl_has_extension(extensions, "EGL_EXT_device_query");
     GLAD_EGL_EXT_image_dma_buf_import = glad_egl_has_extension(extensions, "EGL_EXT_image_dma_buf_import");
+    GLAD_EGL_EXT_image_dma_buf_import_modifiers = glad_egl_has_extension(extensions, "EGL_EXT_image_dma_buf_import_modifiers");
     GLAD_EGL_EXT_platform_device = glad_egl_has_extension(extensions, "EGL_EXT_platform_device");
     GLAD_EGL_MESA_image_dma_buf_export = glad_egl_has_extension(extensions, "EGL_MESA_image_dma_buf_export");
     GLAD_EGL_MESA_query_driver = glad_egl_has_extension(extensions, "EGL_MESA_query_driver");
@@ -278,6 +289,7 @@ int gladLoadEGLUserPtr(EGLDisplay display, GLADuserptrloadfunc load, void* userp
     if (!glad_egl_find_extensions_egl(display)) return 0;
     glad_egl_load_EGL_EXT_device_enumeration(load, userptr);
     glad_egl_load_EGL_EXT_device_query(load, userptr);
+    glad_egl_load_EGL_EXT_image_dma_buf_import_modifiers(load, userptr);
     glad_egl_load_EGL_MESA_image_dma_buf_export(load, userptr);
     glad_egl_load_EGL_MESA_query_driver(load, userptr);
 
