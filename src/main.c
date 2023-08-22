@@ -331,7 +331,6 @@ int main() {
     EGLint n_devices = 0;
     EGLDeviceEXT devices[16];
     eglQueryDevicesEXT(16, devices, &n_devices);
-    printf("%d devices\n", n_devices);
     for (int i = 0; i < n_devices; i++) {
         EGLDisplay display = eglGetDisplay(devices[i]);
         assert(display != EGL_NO_DISPLAY);
