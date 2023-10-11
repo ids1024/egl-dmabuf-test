@@ -1,7 +1,10 @@
 egl-dmabuf-test: src/*.c
-	gcc -Wall -o $@ -I include $^ -lpng16
+	gcc -Wall -o $@ -I include $^ -lpng
 
 run: egl-dmabuf-test
 	./egl-dmabuf-test
 
-.PHONY: run
+clean:
+	rm egl-dmabuf-test
+
+.PHONY: run clean
