@@ -37,9 +37,12 @@ GLuint bind_dmabuf(EGLDisplay display, EGLAttrib width, EGLAttrib height, EGLAtt
     assert(glGetError() == GL_NO_ERROR);
     GLuint texture;
     glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_EXTERNAL_OES, texture);
-    glEGLImageTargetTexture2DOES(GL_TEXTURE_EXTERNAL_OES, image);
-    glBindTexture(GL_TEXTURE_EXTERNAL_OES, 0);
+    // glBindTexture(GL_TEXTURE_EXTERNAL_OES, texture);
+    // glEGLImageTargetTexture2DOES(GL_TEXTURE_EXTERNAL_OES, image);
+    // glBindTexture(GL_TEXTURE_EXTERNAL_OES, 0);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glad_glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, image);
+    glBindTexture(GL_TEXTURE_2D, 0);
 
     eglDestroyImage(display, image);
 
@@ -130,8 +133,8 @@ int main() {
     GLuint framebuffer;
     glGenFramebuffers(1, &framebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    glBindTexture(GL_TEXTURE_EXTERNAL_OES, texture);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_EXTERNAL_OES, texture, 0);
+    glBindTexture(GL_TEXTURE_2D, texture);
     assert(glGetError() == GL_NO_ERROR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
     assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 }
