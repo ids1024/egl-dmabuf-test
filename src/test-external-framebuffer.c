@@ -55,43 +55,6 @@ GLuint bind_dmabuf(EGLDisplay display, EGLAttrib width, EGLAttrib height, EGLAtt
     return texture;
 }
 
-GLuint compile_shader(GLenum shaderType, const char *src) {
-    GLuint shader = glCreateShader(shaderType);
-    GLint length = strlen(src);
-    glShaderSource(shader, 1, &src, &length);
-    glCompileShader(shader);
-
-    GLint compiled;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
-    if(compiled == GL_FALSE) {
-        GLint log_length;
-        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &log_length);
-        char *log = malloc(log_length + 1);
-        glGetShaderInfoLog(shader, log_length, &log_length, log);
-        printf("Shader error: %s", log);
-        exit(1);
-    }
-
-    return shader;
-}
-
-GLuint shader_program(const char *vs_src, const char *fs_src) {
-    GLuint vertex_shader = compile_shader(GL_VERTEX_SHADER, vs_src);
-    GLuint fragment_shader = compile_shader(GL_FRAGMENT_SHADER, fs_src);
-    GLuint program = glCreateProgram();
-    glAttachShader(program, vertex_shader);
-    glAttachShader(program, fragment_shader);
-    glLinkProgram(program);
-    glDeleteShader(vertex_shader);
-    glDeleteShader(fragment_shader);
-
-    GLint linked;
-    glGetProgramiv(program, GL_LINK_STATUS, &linked);
-    assert(linked == GL_TRUE);
-
-    return program;
-}
-
 void init_gles(EGLDisplay display) {
     assert(eglBindAPI(EGL_OPENGL_ES_API));
 
@@ -176,47 +139,7 @@ int main() {
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
     assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 
-    const char *vs =
-        "#version 100\n"
-        "attribute vec4 vertex;\n"
-        "void main(void) {\n"
-        "    gl_Position = (vec4(2.0, 2.0, 1.0, 1.0) * vertex) - vec4(1.0, 1.0, 0.0, 0.0);\n"
-        "}\n";
-    const char *fs =
-        "#version 100\n"
-        "void main(void) {\n"
-        "    gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);\n"
-        "}\n";
-    GLuint program = shader_program(vs, fs);
-    glUseProgram(program);
-
-    GLuint vertex_attrib = glGetAttribLocation(program, "vertex");
-    assert(vertex_attrib != -1);
-
-    GLfloat vertices[10];
-    vertices[0] = 0;
-    vertices[1] = 0;
-    vertices[2] = 1;
-    vertices[3] = 0;
-    vertices[4] = 0;
-    vertices[5] = 1;
-    vertices[6] = 1;
-    vertices[7] = 1;
-    GLuint vbo;
-    glGenBuffers(1, &vbo);
-    glEnableVertexAttribArray(vertex_attrib);
-       glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * 8, vertices, GL_STATIC_DRAW);
-       glVertexAttribPointer(vertex_attrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
-
     glClear(GL_COLOR_BUFFER_BIT);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-    glUseProgram(0);
-    glBindTexture(GL_TEXTURE_EXTERNAL_OES, 0);
-    glDeleteProgram(program);
-
-    assert(glGetError() == GL_NO_ERROR);
 
     glFinish();
 }
