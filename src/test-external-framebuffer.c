@@ -218,4 +218,5 @@ int main() {
 
     assert(glGetError() == GL_NO_ERROR);
 
+    glFinish();
 }
